@@ -835,19 +835,25 @@ class LFM2Model(nn.Module):
         ).to(attention_mask.device)
 
         # Convert attention_mask to float and expand
-        expanded_mask = attention_mask[:, None, None, :].expand(
-            batch_size, 1, seq_length, seq_length
-        ).to(torch.float32)
+        expanded_mask = (
+            attention_mask[:, None, None, :]
+            .expand(batch_size, 1, seq_length, seq_length)
+            .to(torch.float32)
+        )
 
         # Convert to float mask where 1.0 indicates valid attention and 0.0 indicates masked
         expanded_mask = 1.0 - expanded_mask
         causal_float_mask = causal_mask.to(torch.float32)
 
         # Combine masks (using addition since we've flipped the values)
-        combined_mask = expanded_mask + causal_float_mask[None, None, :, :]
+        combined_mask = (
+            expanded_mask + causal_float_mask[None, None, :, :]
+        )
 
         # Convert to attention mask where 0 indicates valid attention and -inf indicates masked
-        return combined_mask.masked_fill(combined_mask > 0, float("-inf"))
+        return combined_mask.masked_fill(
+            combined_mask > 0, float("-inf")
+        )
 
 
 class LFM2ForCausalLM(nn.Module):
@@ -1158,7 +1164,9 @@ def save_model_config(
         "num_attention_heads": model.config.num_attention_heads,
         "num_key_value_heads": model.config.num_key_value_heads,
         "conv_kernel_size": model.config.conv_kernel_size,
-        "max_position_embeddings": model.config.max_position_embeddings,
+        "max_position_embeddings": (
+            model.config.max_position_embeddings
+        ),
         "rms_norm_eps": model.config.rms_norm_eps,
         "tie_word_embeddings": model.config.tie_word_embeddings,
         "rope_theta": model.config.rope_theta,
@@ -1178,4 +1186,3 @@ def save_model_config(
         logger.info(
             f"Model configuration saved to {save_path / 'config.json'}"
         )
-
