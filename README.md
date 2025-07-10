@@ -1,67 +1,108 @@
-[![Multi-Modality](agorabanner.png)](https://discord.com/servers/agora-999382051935506503)
+# LFM2 - Liquid Foundation Model 2 (Minimal Implementation)
 
-# Python Package Template
+[![PyPI version](https://badge.fury.io/py/lfm2.svg)](https://badge.fury.io/py/lfm2)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-[![Join our Discord](https://img.shields.io/badge/Discord-Join%20our%20server-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/agora-999382051935506503) [![Subscribe on YouTube](https://img.shields.io/badge/YouTube-Subscribe-red?style=for-the-badge&logo=youtube&logoColor=white)](https://www.youtube.com/@kyegomez3242) [![Connect on LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-blue?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/kye-g-38759a207/) [![Follow on X.com](https://img.shields.io/badge/X.com-Follow-1DA1F2?style=for-the-badge&logo=x&logoColor=white)](https://x.com/kyegomezb)
+This is a minimal, open-source implementation of the Liquid Foundation Model 2 (LFM2) architecture described in [Liquid AI's blog post](https://www.liquid.ai/blog/liquid-foundation-models-v2-our-second-series-of-generative-ai-models). Since there is no official open-source implementation available, this repository provides a PyTorch implementation of the core architecture for research and educational purposes.
 
-A easy, reliable, fluid template for python packages complete with docs, testing suites, readme's, github workflows, linting and much much more
+## Features
 
+- Hybrid architecture combining short-range convolutions with grouped query attention
+- 16 blocks: 10 LIV convolution blocks + 6 GQA blocks
+- Double-gated short-range convolutions for efficient local processing
+- Grouped Query Attention (GQA) for efficient global attention
+- SwiGLU activation functions
+- RMSNorm normalization
+- Rotary Positional Embeddings (RoPE)
+
+## Model Sizes
+
+The implementation supports three model sizes:
+
+- 350M parameters (768 hidden size)
+- 700M parameters (1024 hidden size)
+- 1.2B parameters (1536 hidden size)
 
 ## Installation
 
-You can install the package using pip
-
 ```bash
-pip install -e .
+pip install -r requirements.txt
 ```
 
-# Usage
+## Quick Start
+
 ```python
-print("hello world")
+import torch
+from lfm2.main import create_lfm2_model
 
+# Create a model
+model = create_lfm2_model(
+    model_size="700M",  # Choose from: "350M", "700M", "1.2B"
+    vocab_size=32768,
+    max_seq_length=32768,
+    verbose=True
+)
+
+# Example forward pass
+batch_size = 2
+seq_length = 32
+input_ids = torch.randint(0, model.config.vocab_size, (batch_size, seq_length))
+
+# Generate outputs
+with torch.no_grad():
+    outputs = model(input_ids)
+    logits = outputs["logits"]
 ```
 
+## Architecture Details
 
+### LIV Convolution Blocks
+The model uses Linear Input-Varying (LIV) convolution blocks that combine double-gating with short-range convolutions:
 
-### Code Quality 🧹
-
-- `make style` to format the code
-- `make check_code_quality` to check code quality (PEP8 basically)
-- `black .`
-- `ruff . --fix`
-
-### Tests 🧪
-
-[`pytests`](https://docs.pytest.org/en/7.1.x/) is used to run our tests.
-
-### Publish on PyPi 🚀
-
-**Important**: Before publishing, edit `__version__` in [src/__init__](/src/__init__.py) to match the wanted new version.
-
-```
-poetry build
-poetry publish
+```python
+def lfm2_conv(x):
+    B, C, x = linear(x)    # input projection
+    x = B*x                # gating (gate depends on input)
+    x = conv(x)            # short conv
+    x = C*x                # gating
+    x = linear(x)
+    return x
 ```
 
-### CI/CD 🤖
+### Grouped Query Attention
+The model implements Grouped Query Attention (GQA) for efficient global attention processing, reducing memory and computational requirements while maintaining model quality.
 
-We use [GitHub actions](https://github.com/features/actions) to automatically run tests and check code quality when a new PR is done on `main`.
+## Usage Examples
 
-On any pull request, we will check the code quality and tests.
+Check `example.py` for detailed usage examples including:
+1. Basic forward pass
+2. Forward pass with attention masks
+3. Forward pass with caching
+4. Forward pass with all outputs
+5. Forward pass with custom position IDs
 
-When a new release is created, we will try to push the new code to PyPi. We use [`twine`](https://twine.readthedocs.io/en/stable/) to make our life easier. 
+## Citation
 
-The **correct steps** to create a new realease are the following:
-- edit `__version__` in [src/__init__](/src/__init__.py) to match the wanted new version.
-- create a new [`tag`](https://git-scm.com/docs/git-tag) with the release name, e.g. `git tag v0.0.1 && git push origin v0.0.1` or from the GitHub UI.
-- create a new release from GitHub UI
+If you use this implementation in your research, please cite:
 
-The CI will run when you create the new release.
+```bibtex
+@misc{lfm2_minimal,
+  author = {Kye Gomez},
+  title = {LFM2: Minimal Implementation of Liquid Foundation Model 2},
+  year = {2024},
+  publisher = {GitHub},
+  url = {https://github.com/kyegomez/LFM2}
+}
+```
 
-# Docs
-We use MK docs. This repo comes with the zeta docs. All the docs configurations are already here along with the readthedocs configs.
+## Disclaimer
 
+This is an unofficial, minimal implementation based on publicly available information about the LFM2 architecture. It is not affiliated with or endorsed by Liquid AI. The implementation may differ from the original model in various aspects.
 
+## License
 
-# License
-MIT
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
