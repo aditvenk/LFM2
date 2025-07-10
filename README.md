@@ -26,7 +26,7 @@ The implementation supports three model sizes:
 ## Installation
 
 ```bash
-pip install -r requirements.txt
+pip3 install -U lfm2 
 ```
 
 ## Quick Start
