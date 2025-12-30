@@ -231,11 +231,14 @@ class LFM2ConvBlock(nn.Module):
         self.config = config
         self.hidden_size = config.hidden_size
 
+        # Pre-norm
+        self.norm = nn.RMSNorm(self.hidden_size, eps=1e-6)
+
         # Input projection to gates and values
         self.input_projection = nn.Linear(
             self.hidden_size,
             3 * self.hidden_size,  # B, C, x
-            bias=False,
+            bias=True, # bias is important for gates
         )
 
         # Short convolution
@@ -256,6 +259,33 @@ class LFM2ConvBlock(nn.Module):
         # Dropout
         self.dropout = nn.Dropout(config.hidden_dropout)
 
+        self._reset_parameters()
+
+    def _reset_parameters(self):
+        """
+        Near-identity initialization:
+        - Gates start close to 1
+        - h_tilde starts small
+        """
+
+        # Initialize input projection
+        nn.init.zeros_(self.input_projection.weight)
+        nn.init.zeros_(self.input_projection.bias)
+
+        # Bias B and C to 1, h_tilde to 0
+        H = self.hidden_size
+        with torch.no_grad():
+            self.input_projection.bias[:H].fill_(1.0)        # B
+            self.input_projection.bias[H:2*H].fill_(1.0)     # C
+            self.input_projection.bias[2*H:].fill_(0.0)      # h_tilde
+
+        # Output projection small init
+        nn.init.normal_(
+            self.output_projection.weight,
+            mean=0.0,
+            std=1.0 / math.sqrt(self.hidden_size),
+        )
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass of the LFM2 convolution block.
 
@@ -265,31 +295,31 @@ class LFM2ConvBlock(nn.Module):
         Returns:
             Output tensor of shape (batch_size, seq_len, hidden_size)
         """
+        residual = x
+
+        # Pre-norm
+        x = self.norm(x)
+
         batch_size, seq_len, hidden_size = x.shape
 
-        # Input projection: B, C, x = linear(x)
-        projected = self.input_projection(x)  # (B, L, 3*H)
-        B, C, x_proj = projected.chunk(3, dim=-1)  # Each: (B, L, H)
+        # Linear projection
+        B, C, h_tilde = self.input_projection(x).chunk(3, dim=-1)
 
-        # First gating: x = B*x
-        x_gated = B * x_proj
+        # First gate
+        y = B * h_tilde
 
-        # Apply short convolution
-        # Convert to (B, H, L) for conv1d
-        x_conv_input = x_gated.transpose(1, 2)  # (B, H, L)
-        x_conv = self.conv(x_conv_input)  # (B, H, L)
-        x_conv = x_conv.transpose(1, 2)  # (B, L, H)
+        # Depthwise convolution
+        y = self.conv(y.transpose(1, 2)).transpose(1, 2)
 
-        # Second gating: x = C*x
-        x_gated_2 = C * x_conv
+        # Second gate
+        y = C * y
 
-        # Apply dropout
-        x_gated_2 = self.dropout(x_gated_2)
+        # Output projection + dropout
+        y = self.output_projection(y)
+        y = self.dropout(y)
 
-        # Output projection
-        output = self.output_projection(x_gated_2)
-
-        return output
+        # Residual connection
+        return residual + y
 
 
 class GroupedQueryAttention(nn.Module):
