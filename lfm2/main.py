@@ -246,7 +246,7 @@ class LFM2ConvBlock(nn.Module):
             self.hidden_size,
             self.hidden_size,
             kernel_size=config.conv_kernel_size,
-            padding=config.conv_kernel_size // 2,
+            padding=0,  # Use manual causal padding instead
             groups=self.hidden_size,  # Depthwise convolution for efficiency
             bias=False,
         )
@@ -308,8 +308,11 @@ class LFM2ConvBlock(nn.Module):
         # First gate
         y = B * h_tilde
 
-        # Depthwise convolution
-        y = self.conv(y.transpose(1, 2)).transpose(1, 2)
+        # Depthwise convolution with CAUSAL padding (left-only)
+        # Pad (kernel_size - 1) on the left, 0 on the right
+        padding_left = self.config.conv_kernel_size - 1
+        y_padded = torch.nn.functional.pad(y.transpose(1, 2), (padding_left, 0))
+        y = self.conv(y_padded).transpose(1, 2)
 
         # Second gate
         y = C * y
