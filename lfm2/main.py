@@ -776,10 +776,21 @@ class LFM2Model(nn.Module):
             past_key_values = [None] * len(self.layers)
 
         # Prepare attention mask
-        if attention_mask is not None:
-            attention_mask = self._prepare_attention_mask(
-                attention_mask, seq_length, batch_size
+        # Always create causal mask, even if not explicitly provided
+        if attention_mask is None:
+            # Create default mask (all ones = no padding)
+            device = (
+                input_ids.device
+                if input_ids is not None
+                else inputs_embeds.device
             )
+            attention_mask = torch.ones(
+                (batch_size, seq_length), dtype=torch.long, device=device
+            )
+
+        attention_mask = self._prepare_attention_mask(
+            attention_mask, seq_length, batch_size
+        )
 
         hidden_states = inputs_embeds
 
