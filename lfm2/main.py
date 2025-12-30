@@ -467,8 +467,8 @@ class GroupedQueryAttention(nn.Module):
 
         # Apply softmax
         attn_weights = F.softmax(
-            attn_weights, dim=-1, dtype=torch.float32
-        ).to(query_states.dtype)
+            attn_weights, dim=-1,
+        ).to(value_states.dtype)
         attn_weights = self.attention_dropout(attn_weights)
 
         # Apply attention to values
